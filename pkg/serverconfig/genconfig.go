@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+  "regexp"
 
 	"camlistore.org/pkg/blobref"
 	"camlistore.org/pkg/jsonconfig"
@@ -124,7 +125,34 @@ func addUIConfig(prefixes jsonconfig.Obj,
 	prefixes[uiPrefix] = ob
 }
 
+
+func FindStringSubmatchMap(r *regexp.Regexp, s string) map[string]string { //http://blog.kamilkisiel.net/blog/2012/07/05/using-the-go-regexp-package/
+  captures := make(map[string]string)
+
+  match := r.FindStringSubmatch(s)
+  if match == nil {
+    return captures
+  }
+
+  for i, name := range r.SubexpNames() {
+    // 
+    if i == 0 {
+      continue
+    }
+    captures[name] = match[i]
+
+  }
+  return captures
+}
+
+
 func addMongoConfig(prefixes jsonconfig.Obj, dbname string, dbinfo string) {
+
+
+  r := regexp.MustCompile(`mongodb://((?P<username>[^:]*):(?P<password>[^@]*)@)?(?P<hostname>[^:]*)(\:(?P<port>.*))/(?P<database>.+)`)
+  fields := FindStringSubmatchMap(r, dbinfo)
+
+  /*
 	fields := strings.Split(dbinfo, "@")
 	if len(fields) != 2 {
 		exitFailure("Malformed mongo config string. Got \"%v\", want: \"user:password@host\"", dbinfo)
@@ -144,6 +172,19 @@ func addMongoConfig(prefixes jsonconfig.Obj, dbname string, dbinfo string) {
 		"database":   dbname,
 		"blobSource": "/bs/",
 	}
+*/
+  ob := map[string]interface{}{}
+  ob["enabled"] = true
+  ob["handler"] = "storage-mongodbindexer"
+  ob["handlerArgs"] = map[string]interface{}{
+    "host":       fields["hostname"],
+    "user":       fields["username"],
+    "password":   fields["password"],
+    "database":   fields["database"],
+    "blobSource": "/bs/",
+  }
+
+
 	prefixes["/index-mongo/"] = ob
 }
 
